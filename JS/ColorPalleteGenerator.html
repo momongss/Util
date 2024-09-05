@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HSV 색상 팔레트 생성기</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f9f9f9;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+      }
+      h1 {
+        color: #444;
+        margin-top: 20px;
+      }
+      .input-container {
+        margin: 20px;
+      }
+      .slider-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 10px;
+      }
+      label {
+        min-width: 100px;
+      }
+      input[type="range"] {
+        width: 300px;
+        margin: 0 10px;
+      }
+      #color-palette {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin: 20px auto;
+        width: 80%;
+        max-width: 600px;
+      }
+      .color-box {
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+      }
+      #generate-button,
+      #download-button {
+        background-color: #007bff;
+        border: none;
+        border-radius: 5px;
+        color: white;
+        padding: 15px 30px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.2s;
+        margin: 20px;
+      }
+      #generate-button:hover,
+      #download-button:hover {
+        background-color: #0056b3;
+      }
+      #generate-button:active,
+      #download-button:active {
+        transform: scale(0.98);
+      }
+      footer {
+        margin-top: 20px;
+        font-size: 14px;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>HSV 색상 팔레트 생성기</h1>
+    <div class="input-container">
+      <div>
+        <label for="hues">색상의 갯수:</label>
+        <input type="number" id="hues" min="1" max="360" value="36" />
+      </div>
+      <div>
+        <label for="saturations">채도의 갯수:</label>
+        <input type="number" id="saturations" min="1" max="100" value="10" />
+      </div>
+      <div>
+        <label for="values">명도의 갯수:</label>
+        <input type="number" id="values" min="1" max="100" value="10" />
+      </div>
+      <div>
+        <label for="pixel-size">픽셀 크기:</label>
+        <input type="number" id="pixel-size" min="1" max="100" value="20" />
+      </div>
+      <div class="slider-container">
+        <label for="saturation-threshold">채도 임계값:</label>
+        <input
+          type="range"
+          id="saturation-threshold"
+          min="0"
+          max="100"
+          value="10"
+        />
+        <span id="saturation-value">10</span>%
+      </div>
+      <div class="slider-container">
+        <label for="value-threshold">명도 임계값:</label>
+        <input type="range" id="value-threshold" min="0" max="100" value="10" />
+        <span id="value-value">10</span>%
+      </div>
+      <button id="generate-button">팔레트 생성</button>
+      <button id="download-button">팔레트 다운로드</button>
+    </div>
+    <div id="color-palette"></div>
+    <canvas id="palette-canvas" style="display: none"></canvas>
+    <footer>
+      <p>&copy; 2024 HSV 색상 팔레트 생성기. All rights reserved.</p>
+    </footer>
+    <script>
+      function hsvToRgb(h, s, v) {
+        let r, g, b;
+        let i = Math.floor(h * 6);
+        let f = h * 6 - i;
+        let p = v * (1 - s);
+        let q = v * (1 - f * s);
+        let t = v * (1 - (1 - f) * s);
+        switch (i % 6) {
+          case 0:
+            r = v;
+            g = t;
+            b = p;
+            break;
+          case 1:
+            r = q;
+            g = v;
+            b = p;
+            break;
+          case 2:
+            r = p;
+            g = v;
+            b = t;
+            break;
+          case 3:
+            r = p;
+            g = q;
+            b = v;
+            break;
+          case 4:
+            r = t;
+            g = p;
+            b = v;
+            break;
+          case 5:
+            r = v;
+            g = p;
+            b = q;
+            break;
+        }
+        return [Math.floor(r * 255), Math.floor(g * 255), Math.floor(b * 255)];
+      }
+
+      function generatePalette() {
+        const hues = parseInt(document.getElementById("hues").value);
+        const saturations = parseInt(
+          document.getElementById("saturations").value
+        );
+        const values = parseInt(document.getElementById("values").value);
+        const pixelSize = parseInt(document.getElementById("pixel-size").value);
+        const saturationThreshold =
+          parseInt(document.getElementById("saturation-threshold").value) / 100;
+        const valueThreshold =
+          parseInt(document.getElementById("value-threshold").value) / 100;
+
+        const colorPalette = document.getElementById("color-palette");
+        colorPalette.innerHTML = "";
+
+        const uniqueColors = new Set();
+
+        for (let h = 0; h < hues; h++) {
+          for (let s = 0; s < saturations; s++) {
+            for (let v = 0; v < values; v++) {
+              let hue = h / hues;
+              let saturation = s / (saturations - 1);
+              let value = v / (values - 1);
+
+              // 너무 어두운 값은 스킵
+              if (value <= valueThreshold) {
+                continue;
+              }
+
+              if (saturation <= saturationThreshold) {
+                continue;
+              }
+
+              const [r, g, b] = hsvToRgb(hue, saturation, value);
+              uniqueColors.add(`rgb(${r}, ${g}, ${b})`);
+            }
+          }
+        }
+
+        // 고유색상 Array로 변환
+        const colorArray = Array.from(uniqueColors);
+
+        // 캔버스 크기 설정
+        const totalColors = colorArray.length + 2; // 검정색과 흰색 포함
+        const cols = Math.min(hues, totalColors);
+        const rows = Math.ceil(totalColors / cols);
+        const paletteCanvas = document.getElementById("palette-canvas");
+        paletteCanvas.width = cols * pixelSize;
+        paletteCanvas.height = rows * pixelSize;
+        const ctx = paletteCanvas.getContext("2d");
+        ctx.clearRect(0, 0, paletteCanvas.width, paletteCanvas.height);
+
+        // 팔레트 그리기
+        colorArray.forEach((color, idx) => {
+          const colorBox = document.createElement("div");
+          colorBox.className = "color-box";
+          colorBox.style.backgroundColor = color;
+          colorBox.style.width = `${pixelSize}px`;
+          colorBox.style.height = `${pixelSize}px`;
+          colorPalette.appendChild(colorBox);
+
+          // 캔버스에 그리기
+          ctx.fillStyle = color;
+          ctx.fillRect(
+            (idx % cols) * pixelSize,
+            Math.floor(idx / cols) * pixelSize,
+            pixelSize,
+            pixelSize
+          );
+        });
+
+        // 검정색과 흰색을 팔레트 마지막에 추가
+        const blackBox = document.createElement("div");
+        blackBox.className = "color-box";
+        blackBox.style.backgroundColor = "black";
+        blackBox.style.width = `${pixelSize}px`;
+        blackBox.style.height = `${pixelSize}px`;
+        colorPalette.appendChild(blackBox);
+
+        ctx.fillStyle = "black";
+        ctx.fillRect(
+          (colorArray.length % cols) * pixelSize,
+          Math.floor(colorArray.length / cols) * pixelSize,
+          pixelSize,
+          pixelSize
+        );
+
+        const whiteBox = document.createElement("div");
+        whiteBox.className = "color-box";
+        whiteBox.style.backgroundColor = "white";
+        whiteBox.style.width = `${pixelSize}px`;
+        whiteBox.style.height = `${pixelSize}px`;
+        colorPalette.appendChild(whiteBox);
+
+        ctx.fillStyle = "white";
+        ctx.fillRect(
+          ((colorArray.length + 1) % cols) * pixelSize,
+          Math.floor((colorArray.length + 1) / cols) * pixelSize,
+          pixelSize,
+          pixelSize
+        );
+      }
+
+      function downloadPalette() {
+        const paletteCanvas = document.getElementById("palette-canvas");
+        const link = document.createElement("a");
+        link.href = paletteCanvas.toDataURL("image/png");
+        link.download = "palette.png";
+        link.click();
+      }
+
+      document
+        .getElementById("saturation-threshold")
+        .addEventListener("input", (event) => {
+          document.getElementById("saturation-value").textContent =
+            event.target.value;
+        });
+
+      document
+        .getElementById("value-threshold")
+        .addEventListener("input", (event) => {
+          document.getElementById("value-value").textContent =
+            event.target.value;
+        });
+
+      document
+        .getElementById("generate-button")
+        .addEventListener("click", generatePalette);
+      document
+        .getElementById("download-button")
+        .addEventListener("click", downloadPalette);
+    </script>
+  </body>
+</html>
